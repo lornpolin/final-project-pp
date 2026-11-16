@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: pp-shop
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --workers 1 --threads 4 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false # Paste your Neon PostgreSQL connection string in Render
+      - key: SHOP_NAME
+        value: PP Shop
+      - key: CURRENCY
+        value: USD
+      - key: BAKONG_ACCOUNT_ID
+        value: ppshop@aclb
+      - key: KHQR_MERCHANT_NAME
+        value: PP Shop
+      - key: KHQR_MERCHANT_CITY
+        value: Phnom Penh
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false # Optional: set a strong password before first boot (defaults to Admin@123)

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import product_image, checkout_steps %}
+
+{% block title %}Your Cart – {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  {{ checkout_steps(1) }}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h1 class="section-title h3 mb-0">Shopping cart</h1>
+    {% if items %}
+      <span class="text-secondary small">{{ items | sum(attribute='quantity') }} item{{ '' if (items | sum(attribute='quantity')) == 1 else 's' }} in cart</span>
+    {% endif %}
+  </div>
+
+  {% if items %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="surface overflow-hidden">
+        {% for item in items %}
+        {% set p = item.product %}
+        <div class="cart-item-row">
+          <div class="row align-items-center g-3">
+            <div class="col-12 col-md-6">
+              <div class="d-flex align-items-center gap-3">
+                <a href="{{ url_for('front.product_detail', product_id=p.id) }}">{{ product_image(p, cls="cart-thumb") }}</a>
+                <div class="min-w-0">
+                  <a class="product-name mb-1" href="{{ url_for('front.product_detail', product_id=p.id) }}">{{ p.name }}</a>
+                  <div class="small text-secondary">{{ p.price | money }} each &middot;
+                    <span class="{% if p.stock <= 5 %}text-warning fw-semibold{% endif %}">{{ p.stock }} in stock</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <form method="post" action="{{ url_for('front.cart_update', product_id=p.id) }}" data-autosubmit>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="input-group input-group-sm qty-group" data-qty style="width: 126px">
+                  <button class="btn" type="button" data-step="-1" aria-label="Decrease"><i class="bi bi-dash"></i></button>
+                  <input type="number" class="form-control" name="quantity" value="{{ item.quantity }}" min="0" max="{{ [p.stock, 99] | min }}" aria-label="Quantity for {{ p.name }}">
+                  <button class="btn" type="button" data-step="1" aria-label="Increase"><i class="bi bi-plus"></i></button>
+                </div>
+                <noscript><button class="btn btn-link btn-sm p-0 mt-1" type="submit">Update</button></noscript>
+              </form>
+            </div>
+
+            <div class="col-6 col-md-3 d-flex align-items-center justify-content-end gap-2">
+              <div class="price fs-6 text-end">{{ item.subtotal | money }}</div>
+              <form method="post" action="{{ url_for('front.cart_remove', product_id=p.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-ghost text-danger" type="submit" title="Remove {{ p.name }}" aria-label="Remove {{ p.name }}">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <a href="{{ url_for('front.home') }}" class="btn btn-link px-0 mt-3 text-decoration-none">
+        <i class="bi bi-arrow-left me-1"></i>Continue shopping
+      </a>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="surface surface-pad position-sticky" style="top: 88px">
+        <h2 class="h5 fw-bold mb-3">Order summary</h2>
+        <div class="summary-row"><span>Items</span><span class="fw-semibold tabular-nums">{{ items | sum(attribute='quantity') }}</span></div>
+        <div class="summary-row"><span>Subtotal</span><span class="fw-semibold tabular-nums">{{ total | money }}</span></div>
+        <div class="summary-row"><span>Shipping</span><span class="badge text-bg-success-subtle text-success rounded-pill">Free</span></div>
+        <div class="summary-row summary-total"><span>Total</span><span class="tabular-nums">{{ total | money }}</span></div>
+        <a href="{{ url_for('front.checkout') }}" class="btn btn-primary btn-lg w-100 mt-3">
+          Proceed to Checkout <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+        <div class="text-center small text-secondary mt-3">
+          <i class="bi bi-qr-code me-1"></i>Pay securely with Bakong KHQR
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+    <div class="surface empty-state">
+      <i class="bi bi-bag-x"></i>
+      <h2 class="h5 mt-3 fw-bold">Your cart is empty</h2>
+      <p class="text-secondary mb-4">Looks like you haven't added anything yet. Browse our shop to find something great.</p>
+      <a href="{{ url_for('front.home') }}" class="btn btn-primary px-4"><i class="bi bi-shop me-1"></i>Start shopping</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

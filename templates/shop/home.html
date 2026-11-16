@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_macros.html" import product_card, pagination_nav %}
+
+{% block title %}{{ shop_name }} – Shop online, pay with KHQR{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% if not search and pagination.page == 1 %}
+  <section class="hero mb-4">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <span class="pill"><i class="bi bi-qr-code-scan"></i> Instant Bakong KHQR Checkout</span>
+        <h1 class="mt-3 mb-2">Everyday goods,<br>simple to order &amp; pay.</h1>
+        <p class="text-secondary mb-3">Pick what you need, check out as a guest in seconds, and scan KHQR with any Cambodian banking app.</p>
+        <div class="hero-features mb-4">
+          <span><i class="bi bi-check-circle-fill"></i> No account needed</span>
+          <span><i class="bi bi-truck"></i> Free shipping</span>
+          <span><i class="bi bi-shield-check"></i> Instant KHQR</span>
+        </div>
+        <a href="#products" class="btn btn-primary btn-lg px-4"><i class="bi bi-bag me-2"></i>Browse products</a>
+      </div>
+      <div class="col-lg-5 d-none d-lg-block">
+        <div class="hero-visual">
+          <div class="hero-mini-step">
+            <div class="hero-mini-icon"><i class="bi bi-grid"></i></div>
+            <div><div class="fw-bold small">1. Pick your items</div><div class="text-secondary" style="font-size:.78rem">Clear pricing &amp; live stock status</div></div>
+          </div>
+          <div class="hero-mini-step">
+            <div class="hero-mini-icon"><i class="bi bi-pencil-square"></i></div>
+            <div><div class="fw-bold small">2. Quick guest checkout</div><div class="text-secondary" style="font-size:.78rem">Just name, phone &amp; delivery address</div></div>
+          </div>
+          <div class="hero-mini-step">
+            <div class="hero-mini-icon text-danger" style="background:#fef2f2"><i class="bi bi-qr-code"></i></div>
+            <div><div class="fw-bold small">3. Scan KHQR to pay</div><div class="text-secondary" style="font-size:.78rem">Works with Bakong, ABA, ACLEDA &amp; Wing</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <div id="products" class="catalog-toolbar d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <h2 class="section-title h5 mb-0">
+        {% if search %}Search results{% else %}All products{% endif %}
+      </h2>
+      <span class="badge rounded-pill text-bg-light border text-secondary">{{ pagination.total }} item{{ '' if pagination.total == 1 else 's' }}</span>
+      {% if search %}
+        <a href="{{ url_for('front.home', sort=sort if sort != 'newest' else None) }}" class="active-filter-chip" title="Clear search">
+          “{{ search }}” <i class="bi bi-x-lg"></i>
+        </a>
+      {% endif %}
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-center">
+      {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+      <label for="sort" class="small text-secondary text-nowrap mb-0"><i class="bi bi-arrow-down-up me-1"></i>Sort</label>
+      <select id="sort" name="sort" class="form-select form-select-sm" style="min-width: 170px" onchange="this.form.submit()">
+        <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest first</option>
+        <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: low to high</option>
+        <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: high to low</option>
+        <option value="name" {% if sort == 'name' %}selected{% endif %}>Name A–Z</option>
+      </select>
+    </form>
+  </div>
+
+  {% if pagination.items %}
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-4">
+      {% for product in pagination.items %}
+        <div class="col">{{ product_card(product) }}</div>
+      {% endfor %}
+    </div>
+    {{ pagination_nav(pagination, 'front.home', q=search or None, sort=sort if sort != 'newest' else None) }}
+  {% else %}
+    <div class="surface empty-state">
+      <i class="bi bi-search"></i>
+      <h3 class="h5 mt-3 fw-bold">No products found</h3>
+      <p class="text-secondary mb-4">We couldn't find anything matching your search. Try another keyword or view everything.</p>
+      <a href="{{ url_for('front.home') }}" class="btn btn-primary px-4">Browse all products</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

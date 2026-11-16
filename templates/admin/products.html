@@ -1,0 +1,96 @@
+{% extends "admin/base.html" %}
+{% from "_macros.html" import product_image, pagination_nav %}
+
+{% block title %}Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('admin.product_create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add New Product</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  {% set cards = [
+    ("Total products", stats.total, "bi-box-seam", "#eef2ff", "#4f46e5"),
+    ("Active", stats.active, "bi-check2-circle", "#dcfce7", "#16a34a"),
+    ("Out of stock", stats.out_of_stock, "bi-exclamation-triangle", "#fee2e2", "#dc2626"),
+    ("Orders", stats.orders, "bi-receipt", "#fef3c7", "#d97706"),
+  ] %}
+  {% for label, value, icon, bg, fg in cards %}
+  <div class="col-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background: {{ bg }}; color: {{ fg }}"><i class="bi {{ icon }}"></i></div>
+      <div><div class="stat-value">{{ value }}</div><div class="stat-label">{{ label }}</div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="surface overflow-hidden">
+  <form class="d-flex flex-wrap gap-2 p-3 border-bottom bg-light bg-opacity-50" method="get">
+    <div class="position-relative flex-grow-1" style="max-width: 360px">
+      <input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Search by name or description…">
+    </div>
+    <select name="status" class="form-select" style="width: auto" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      <option value="ACTIVE" {% if status == 'ACTIVE' %}selected{% endif %}>Active</option>
+      <option value="INACTIVE" {% if status == 'INACTIVE' %}selected{% endif %}>Inactive</option>
+    </select>
+    <button class="btn btn-soft" type="submit"><i class="bi bi-search me-1"></i>Filter</button>
+    {% if search or status %}<a class="btn btn-ghost" href="{{ url_for('admin.product_list') }}">Clear</a>{% endif %}
+  </form>
+
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th class="ps-3">ID</th>
+          <th>Image</th>
+          <th>Name</th>
+          <th class="text-end">Price</th>
+          <th class="text-end">Stock</th>
+          <th>Status</th>
+          <th class="text-end pe-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pagination.items %}
+        <tr>
+          <td class="ps-3 text-secondary tabular-nums">#{{ p.id }}</td>
+          <td>{{ product_image(p, cls="admin-thumb") }}</td>
+          <td>
+            <div class="fw-semibold">{{ p.name }}</div>
+            <div class="small text-secondary text-truncate" style="max-width: 300px">{{ p.short_description }}</div>
+          </td>
+          <td class="text-end fw-semibold tabular-nums">{{ p.price | money }}</td>
+          <td class="text-end tabular-nums">
+            <span class="{% if p.stock <= 0 %}text-danger fw-bold{% elif p.stock <= 5 %}text-warning fw-bold{% endif %}">{{ p.stock }}</span>
+          </td>
+          <td>
+            {% if p.is_active %}
+              <span class="status-badge text-bg-success">Active</span>
+            {% else %}
+              <span class="status-badge text-bg-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="text-end pe-3 text-nowrap">
+            {% if p.is_active %}
+            <a class="btn btn-sm btn-ghost" href="{{ url_for('front.product_detail', product_id=p.id) }}" target="_blank" title="View in store"><i class="bi bi-eye"></i></a>
+            {% endif %}
+            <a class="btn btn-sm btn-soft" href="{{ url_for('admin.product_edit', product_id=p.id) }}"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <form method="post" action="{{ url_for('admin.product_delete', product_id=p.id) }}" class="d-inline"
+                  data-confirm="Delete “{{ p.name }}”? This cannot be undone. Existing orders keep their item history.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash3 me-1"></i>Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-secondary py-5">No products found.
+          <a href="{{ url_for('admin.product_create') }}">Add your first product</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ pagination_nav(pagination, 'admin.product_list', q=search or None, status=status or None) }}
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import product_image, checkout_steps %}
+
+{% block title %}Checkout – {{ shop_name }}{% endblock %}
+
+{% macro field(name, label, icon, type="text", placeholder="", autocomplete="", textarea=False) %}
+  <div class="mb-3">
+    <label for="{{ name }}" class="form-label">{{ label }} <span class="text-danger">*</span></label>
+    {% if textarea %}
+      <textarea id="{{ name }}" name="{{ name }}" rows="3" required maxlength="500"
+                class="form-control {% if errors.get(name) %}is-invalid{% endif %}"
+                placeholder="{{ placeholder }}" autocomplete="{{ autocomplete }}">{{ form.get(name, '') }}</textarea>
+    {% else %}
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi {{ icon }}"></i></span>
+        <input id="{{ name }}" name="{{ name }}" type="{{ type }}" required maxlength="120"
+               class="form-control {% if errors.get(name) %}is-invalid{% endif %}"
+               value="{{ form.get(name, '') }}" placeholder="{{ placeholder }}" autocomplete="{{ autocomplete }}">
+      </div>
+    {% endif %}
+    {% if errors.get(name) %}<div class="invalid-feedback d-block">{{ errors[name] }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
+{% block content %}
+<div class="container py-4">
+  {{ checkout_steps(2) }}
+  <h1 class="section-title h3 mb-4">Checkout</h1>
+
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="surface surface-pad">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <h2 class="h5 fw-bold mb-1">Delivery information</h2>
+              <p class="text-secondary small mb-0">No account needed — enter where we should send your order.</p>
+            </div>
+            <span class="badge rounded-pill text-bg-light border text-secondary">Guest checkout</span>
+          </div>
+          {{ field("name", "Full name", "bi-person", placeholder="e.g. Sok Dara", autocomplete="name") }}
+          <div class="row">
+            <div class="col-md-6">{{ field("email", "Email address", "bi-envelope", type="email", placeholder="you@example.com", autocomplete="email") }}</div>
+            <div class="col-md-6">{{ field("phone", "Phone number", "bi-telephone", type="tel", placeholder="012 345 678", autocomplete="tel") }}</div>
+          </div>
+          {{ field("address", "Shipping address", "bi-geo-alt", placeholder="House no., street, sangkat, khan, city / province", autocomplete="street-address", textarea=True) }}
+        </div>
+
+        <div class="surface surface-pad mt-4">
+          <h2 class="h5 fw-bold mb-3">Payment method</h2>
+          <label class="d-flex align-items-center gap-3 p-3 border rounded-3 border-primary bg-light bg-opacity-50">
+            <input class="form-check-input mt-0" type="radio" checked disabled>
+            <span class="rounded-2 text-white fw-bold px-2 py-1" style="background: var(--khqr-red); letter-spacing: .1em; font-size:.85rem">KHQR</span>
+            <span>
+              <span class="fw-semibold d-block">Bakong KHQR</span>
+              <span class="small text-secondary">Scan with Bakong, ABA, ACLEDA, Wing and any KHQR-supported banking app.</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="surface surface-pad position-sticky" style="top: 88px">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 fw-bold mb-0">Your order</h2>
+            <a href="{{ url_for('front.cart') }}" class="small fw-semibold text-decoration-none">Edit cart</a>
+          </div>
+          <ul class="list-unstyled mb-3">
+            {% for item in items %}
+            <li class="d-flex align-items-center gap-3 py-2 {% if not loop.last %}border-bottom{% endif %}">
+              <div class="position-relative">
+                {{ product_image(item.product, cls="cart-thumb", ) }}
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-dark">{{ item.quantity }}</span>
+              </div>
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold text-truncate">{{ item.product.name }}</div>
+                <div class="small text-secondary">{{ item.quantity }} × {{ item.product.price | money }}</div>
+              </div>
+              <div class="fw-bold tabular-nums">{{ item.subtotal | money }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          <div class="summary-row"><span>Subtotal</span><span class="fw-semibold tabular-nums">{{ total | money }}</span></div>
+          <div class="summary-row"><span>Shipping</span><span class="badge text-bg-success-subtle text-success rounded-pill">Free</span></div>
+          <div class="summary-row summary-total"><span>Total</span><span class="tabular-nums">{{ total | money }}</span></div>
+          <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">
+            <i class="bi bi-qr-code me-2"></i>Place order &amp; pay with KHQR
+          </button>
+          <a href="{{ url_for('front.cart') }}" class="btn btn-link w-100 mt-1 text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Back to cart</a>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

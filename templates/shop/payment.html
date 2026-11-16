@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "_macros.html" import checkout_steps %}
+
+{% block title %}Pay with KHQR – {{ order.code }} – {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  {{ checkout_steps(3) }}
+
+  <div class="row g-4 align-items-start">
+    <div class="col-lg-6 order-lg-2">
+      <div class="surface surface-pad text-center">
+        <h1 class="section-title h4 mb-1">Scan KHQR to pay</h1>
+        <p class="text-secondary small mb-4">Open Bakong or any Cambodian banking app and scan the code below.</p>
+
+        <div class="khqr-card text-start">
+          <div class="khqr-head"><span class="khqr-logo">KHQR</span></div>
+          <div class="khqr-body">
+            <div class="khqr-merchant">{{ config.KHQR_MERCHANT_NAME }}</div>
+            <div class="khqr-amount">{{ '{:,.2f}'.format(order.total_amount) if order.currency == 'USD' else '{:,.0f}'.format(order.total_amount) }}<small>{{ order.currency }}</small></div>
+            <div class="khqr-divider"></div>
+            <div class="khqr-qr {% if order.khqr_expired %}expired{% endif %}" id="khqrBox">
+              <img src="{{ qr_image }}" alt="KHQR payment code for {{ order.code }}">
+              <span class="center-icon">{{ '$' if order.currency == 'USD' else '៛' }}</span>
+              <div class="khqr-overlay">
+                <div class="bg-white bg-opacity-90 p-3 rounded-4 shadow-sm">
+                  <div class="fw-bold mb-2">QR code expired</div>
+                  <form method="post" action="{{ url_for('front.payment_regenerate', public_id=order.public_id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-dark btn-sm" type="submit"><i class="bi bi-arrow-clockwise me-1"></i>Generate new QR</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill bg-light border" id="statusLine">
+          <span class="pulse-dot"></span>
+          <span class="fw-semibold small">Waiting for payment</span>
+          <span class="text-secondary small">&middot; expires in <span class="countdown" id="countdown">--:--</span></span>
+        </div>
+
+        {% if demo_mode %}
+        <div class="alert alert-warning text-start small mt-4 mb-0 rounded-4">
+          <div class="fw-semibold mb-1"><i class="bi bi-cone-striped me-1"></i>Demo mode active</div>
+          Automatic Bakong verification is off because no API token is set. Use the button below to complete your test order:
+          <form method="post" action="{{ url_for('front.payment_simulate', public_id=order.public_id) }}" class="mt-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success btn-sm" type="submit"><i class="bi bi-check2-circle me-1"></i>Simulate successful payment</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-lg-6 order-lg-1">
+      <div class="surface surface-pad">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <div class="small text-secondary text-uppercase fw-semibold" style="letter-spacing:.05em">Order ID</div>
+            <h2 class="h4 fw-bold mb-0">{{ order.code }}</h2>
+          </div>
+          <span class="badge text-bg-warning rounded-pill px-3 py-2">Awaiting payment</span>
+        </div>
+
+        <div class="p-3 rounded-3 bg-light mb-4 small">
+          <div class="fw-bold mb-2 text-dark">How to pay in 4 easy steps</div>
+          <ol class="text-secondary ps-3 mb-0">
+            <li class="mb-1">Open your banking app (Bakong, ABA, ACLEDA, Wing…).</li>
+            <li class="mb-1">Tap <strong>Scan KHQR</strong> and point your camera at the code.</li>
+            <li class="mb-1">Confirm <strong>{{ order.total_amount | money(order.currency) }}</strong> and complete payment.</li>
+            <li>This page updates automatically as soon as payment arrives.</li>
+          </ol>
+        </div>
+
+        <h3 class="h6 fw-bold mb-2">Order items</h3>
+        <ul class="list-unstyled small mb-3">
+          {% for item in order.items %}
+          <li class="d-flex justify-content-between py-2 {% if not loop.last %}border-bottom{% endif %}">
+            <span>{{ item.product_name }} <span class="text-secondary">× {{ item.quantity }}</span></span>
+            <span class="fw-semibold tabular-nums">{{ item.subtotal | money(order.currency) }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="summary-row summary-total"><span>Total</span><span class="tabular-nums">{{ order.total_amount | money(order.currency) }}</span></div>
+
+        <div class="mt-4 pt-3 border-top">
+          <h3 class="h6 fw-bold mb-2">Deliver to</h3>
+          <div class="small">
+            <div class="fw-semibold">{{ order.customer_name }}</div>
+            <div class="text-secondary">{{ order.customer_phone }} &middot; {{ order.customer_email }}</div>
+            <div class="text-secondary mt-1" style="white-space: pre-line">{{ order.shipping_address }}</div>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('front.payment_cancel', public_id=order.public_id) }}" class="mt-4"
+              data-confirm="Cancel this order? Items will be released back to the store.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-x-circle me-1"></i>Cancel order</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var expiresAt = {{ order.khqr_expires_ms }};
+  var statusUrl = "{{ url_for('front.payment_status', public_id=order.public_id) }}";
+  var box = document.getElementById("khqrBox");
+  var countdown = document.getElementById("countdown");
+
+  function tick() {
+    var left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    countdown.textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+    if (left === 0) box.classList.add("expired");
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  function poll() {
+    fetch(statusUrl, { headers: { "Accept": "application/json" }, cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === "PAID" && data.redirect) { window.location.href = data.redirect; return; }
+        if (data.status === "CANCELLED") { window.location.href = "{{ url_for('front.home') }}"; return; }
+        setTimeout(poll, 4000);
+      })
+      .catch(function () { setTimeout(poll, 8000); });
+  }
+  setTimeout(poll, 3000);
+})();
+</script>
+{% endblock %}

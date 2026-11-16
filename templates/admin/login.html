@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Admin sign in – {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="surface surface-pad mx-auto" style="max-width: 420px">
+    <div class="text-center mb-4">
+      <span class="brand-mark mx-auto mb-3" style="width:54px;height:54px;font-size:1.45rem"><i class="bi bi-shield-lock-fill"></i></span>
+      <h1 class="h4 fw-bold mb-1">Admin sign in</h1>
+      <p class="text-secondary small mb-0">Manage products and view orders for {{ shop_name }}.</p>
+    </div>
+    <form method="post" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-person"></i></span>
+          <input id="username" name="username" class="form-control" required autofocus autocomplete="username" placeholder="Enter username">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label for="password" class="form-label">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-key"></i></span>
+          <input id="password" name="password" type="password" class="form-control" required autocomplete="current-password" placeholder="Enter password">
+        </div>
+      </div>
+      <button class="btn btn-primary w-100 btn-lg" type="submit"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

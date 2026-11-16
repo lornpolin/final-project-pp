@@ -1,0 +1,93 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Order {{ order.code }}{% endblock %}
+{% block page_title %}Order {{ order.code }}{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('admin.order_list') }}" class="btn btn-ghost"><i class="bi bi-arrow-left me-1"></i>Back to orders</a>
+  <button type="button" class="btn btn-ghost" onclick="window.print()" title="Print order"><i class="bi bi-printer"></i></button>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="surface overflow-hidden">
+      <div class="p-3 px-4 border-bottom bg-light bg-opacity-50 d-flex justify-content-between align-items-center">
+        <h2 class="h6 fw-bold mb-0">Purchased items</h2>
+        <span class="badge rounded-pill text-bg-light border text-secondary">{{ order.item_count }} item{{ '' if order.item_count == 1 else 's' }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table admin-table">
+          <thead>
+            <tr><th class="ps-4">Product</th><th class="text-end">Unit price</th><th class="text-center">Quantity</th><th class="text-end pe-4">Subtotal</th></tr>
+          </thead>
+          <tbody>
+            {% for item in order.items %}
+            <tr>
+              <td class="ps-4">
+                <div class="fw-semibold">{{ item.product_name }}</div>
+                <div class="small text-secondary">
+                  {% if item.product_id %}<a href="{{ url_for('admin.product_edit', product_id=item.product_id) }}" class="text-decoration-none">Product #{{ item.product_id }}</a>
+                  {% else %}Product deleted{% endif %}
+                </div>
+              </td>
+              <td class="text-end tabular-nums">{{ item.unit_price | money(order.currency) }}</td>
+              <td class="text-center tabular-nums">{{ item.quantity }}</td>
+              <td class="text-end pe-4 fw-semibold tabular-nums">{{ item.subtotal | money(order.currency) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="text-end fw-bold border-0 pt-3">Total</td>
+              <td class="text-end pe-4 fw-bold fs-5 border-0 pt-3 tabular-nums">{{ order.total_amount | money(order.currency) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="surface surface-pad mt-4">
+      <h2 class="h6 fw-bold mb-3"><i class="bi bi-truck me-2 text-brand"></i>Shipping address</h2>
+      <p class="mb-0" style="white-space: pre-line">{{ order.shipping_address }}</p>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="surface surface-pad">
+      <h2 class="h6 fw-bold text-uppercase text-secondary small mb-3" style="letter-spacing:.05em">Customer</h2>
+      <dl class="kv mb-0">
+        <dt>Full name</dt><dd>{{ order.customer_name }}</dd>
+        <dt>Phone number</dt><dd><a href="tel:{{ order.customer_phone }}" class="text-decoration-none">{{ order.customer_phone }}</a></dd>
+        <dt>Email address</dt><dd class="mb-0"><a href="mailto:{{ order.customer_email }}" class="text-decoration-none">{{ order.customer_email }}</a></dd>
+      </dl>
+    </div>
+
+    <div class="surface surface-pad mt-4">
+      <h2 class="h6 fw-bold text-uppercase text-secondary small mb-3" style="letter-spacing:.05em">Payment</h2>
+      <dl class="kv mb-0">
+        <dt>Status</dt><dd><span class="status-badge text-bg-{{ order.status_badge }}">{{ order.status | title }}</span></dd>
+        <dt>Method</dt><dd>KHQR (Bakong)</dd>
+        <dt>Order date</dt><dd>{{ order.created_at | datetime }}</dd>
+        {% if order.paid_at %}<dt>Paid at</dt><dd>{{ order.paid_at | datetime }}</dd>{% endif %}
+        {% if order.payment_reference %}<dt>Reference</dt><dd class="text-break small">{{ order.payment_reference }}</dd>{% endif %}
+        {% if order.khqr_md5 %}<dt>KHQR MD5</dt><dd class="text-break small font-monospace mb-0">{{ order.khqr_md5 }}</dd>{% endif %}
+      </dl>
+
+      {% if order.is_pending %}
+      <div class="d-grid gap-2 mt-3 pt-3 border-top">
+        <form method="post" action="{{ url_for('admin.order_mark_paid', order_id=order.id) }}"
+              data-confirm="Mark {{ order.code }} as paid? Only do this after confirming the payment in your bank app.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-success w-100" type="submit"><i class="bi bi-check2-circle me-1"></i>Mark as paid</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.order_cancel', order_id=order.id) }}"
+              data-confirm="Cancel {{ order.code }}? Reserved stock will be returned.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-danger w-100" type="submit"><i class="bi bi-x-circle me-1"></i>Cancel order</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

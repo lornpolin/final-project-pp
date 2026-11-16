@@ -1,0 +1,99 @@
+{% extends "admin/base.html" %}
+{% from "_macros.html" import product_image %}
+
+{% set is_edit = mode == 'edit' %}
+{% block title %}{{ 'Edit product' if is_edit else 'Add product' }}{% endblock %}
+{% block page_title %}{{ 'Edit product #' ~ product.id if is_edit else 'Add new product' }}{% endblock %}
+{% block page_actions %}
+  <a href="{{ url_for('admin.product_list') }}" class="btn btn-ghost"><i class="bi bi-arrow-left me-1"></i>Back to products</a>
+{% endblock %}
+
+{% macro invalid(name) %}{% if errors.get(name) %}is-invalid{% endif %}{% endmacro %}
+{% macro feedback(name) %}{% if errors.get(name) %}<div class="invalid-feedback d-block">{{ errors[name] }}</div>{% endif %}{% endmacro %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="surface surface-pad">
+        <h2 class="h6 fw-bold text-uppercase text-secondary small mb-3" style="letter-spacing:.05em">Product details</h2>
+        <div class="mb-3">
+          <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+          <input id="name" name="name" class="form-control {{ invalid('name') }}" maxlength="150" required value="{{ form.get('name', '') }}" placeholder="e.g. Wireless Headphones">
+          {{ feedback('name') }}
+        </div>
+        <div class="mb-3">
+          <label for="description" class="form-label">Description</label>
+          <textarea id="description" name="description" rows="7" maxlength="5000"
+                    class="form-control {{ invalid('description') }}" placeholder="Describe features, materials, size…">{{ form.get('description', '') }}</textarea>
+          {{ feedback('description') }}
+        </div>
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label for="price" class="form-label">Price ({{ config.CURRENCY }}) <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text">{{ '$' if config.CURRENCY == 'USD' else '៛' }}</span>
+              <input id="price" name="price" type="number" step="0.01" min="0.01" class="form-control {{ invalid('price') }}" required value="{{ form.get('price', '') }}">
+            </div>
+            {{ feedback('price') }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="stock" class="form-label">Stock quantity <span class="text-danger">*</span></label>
+            <input id="stock" name="stock" type="number" step="1" min="0" class="form-control {{ invalid('stock') }}" required value="{{ form.get('stock', '0') }}">
+            {{ feedback('stock') }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
+            <select id="status" name="status" class="form-select {{ invalid('status') }}">
+              <option value="ACTIVE" {% if form.get('status') == 'ACTIVE' %}selected{% endif %}>Active (visible in store)</option>
+              <option value="INACTIVE" {% if form.get('status') == 'INACTIVE' %}selected{% endif %}>Inactive (hidden)</option>
+            </select>
+            {{ feedback('status') }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="surface surface-pad">
+        <label class="form-label" for="image">Product image</label>
+        <div class="dropzone">
+          <div class="image-preview mb-3" id="imagePreview">
+            {% if product and product.thumbnail %}
+              {{ product_image(product) }}
+            {% else %}
+              <div class="text-center p-3">
+                <i class="bi bi-cloud-arrow-up fs-1"></i>
+                <div class="small fw-semibold mt-1">Drop image here or choose file</div>
+              </div>
+            {% endif %}
+          </div>
+          <input id="image" name="image" type="file" accept=".jpg,.jpeg,.jfif,.png,.webp,image/*"
+                 class="form-control {{ invalid('image') }}" data-preview="#imagePreview">
+        </div>
+        {{ feedback('image') }}
+        <div class="form-text mt-2">JPG, JPEG, JFIF, PNG or WEBP, max 10 MB. A square thumbnail is created automatically.</div>
+        {% if product and product.image %}
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" value="1" id="remove_image" name="remove_image">
+          <label class="form-check-label small" for="remove_image">Remove current image</label>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="d-grid gap-2 mt-4">
+        <button class="btn btn-primary btn-lg" type="submit">
+          <i class="bi bi-check2 me-1"></i>{{ 'Update product' if is_edit else 'Save product' }}
+        </button>
+        <a href="{{ url_for('admin.product_list') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+      {% if is_edit %}
+      <div class="small text-secondary mt-3">
+        Created {{ product.created_at | datetime }}<br>Last updated {{ product.updated_at | datetime }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+{% endblock %}

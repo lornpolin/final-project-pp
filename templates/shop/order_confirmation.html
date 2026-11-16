@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_macros.html" import checkout_steps %}
+
+{% block title %}Order confirmed – {{ order.code }} – {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 900px">
+  <div class="no-print">{{ checkout_steps(5) }}</div>
+
+  <div class="surface surface-pad text-center mb-4">
+    <div class="success-icon"><i class="bi bi-check-lg"></i></div>
+    <h1 class="section-title h3 mb-2">Thank you, {{ order.customer_name.split()[0] }}! Your order is confirmed.</h1>
+    <p class="text-secondary mb-3">We've received your KHQR payment and started preparing your items. Save or print this page for your records.</p>
+    <button type="button" class="btn btn-soft btn-sm rounded-pill px-3 no-print" data-copy="{{ order.code }}">
+      <i class="bi bi-clipboard me-1"></i> <span>Copy Order ID: {{ order.code }}</span>
+    </button>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-md-5">
+      <div class="surface surface-pad h-100">
+        <h2 class="h6 fw-bold text-uppercase text-secondary small mb-3" style="letter-spacing:.05em">Order summary</h2>
+        <dl class="kv mb-0">
+          <dt>Order ID</dt><dd class="fs-5">{{ order.code }}</dd>
+          <dt>Order date</dt><dd>{{ order.created_at | datetime }}</dd>
+          <dt>Payment</dt>
+          <dd><span class="badge text-bg-success rounded-pill">Paid</span> via KHQR
+            {% if order.paid_at %}<div class="small text-secondary fw-normal mt-1">{{ order.paid_at | datetime }}</div>{% endif %}
+          </dd>
+          <dt>Total amount</dt><dd class="fs-4 fw-bold text-brand tabular-nums">{{ order.total_amount | money(order.currency) }}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="col-md-7">
+      <div class="surface surface-pad h-100">
+        <h2 class="h6 fw-bold text-uppercase text-secondary small mb-3" style="letter-spacing:.05em">Customer details</h2>
+        <dl class="kv row mb-0">
+          <div class="col-sm-6"><dt>Full name</dt><dd>{{ order.customer_name }}</dd></div>
+          <div class="col-sm-6"><dt>Phone number</dt><dd>{{ order.customer_phone }}</dd></div>
+          <div class="col-12"><dt>Email address</dt><dd>{{ order.customer_email }}</dd></div>
+          <div class="col-12"><dt>Shipping address</dt><dd class="mb-0" style="white-space: pre-line">{{ order.shipping_address }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="surface mt-4 overflow-hidden">
+    <div class="p-3 px-4 border-bottom bg-light bg-opacity-50 fw-bold small text-uppercase text-secondary" style="letter-spacing:.05em">Items purchased</div>
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr><th class="ps-4">Item</th><th class="text-center">Qty</th><th class="text-end">Unit price</th><th class="text-end pe-4">Subtotal</th></tr>
+        </thead>
+        <tbody>
+          {% for item in order.items %}
+          <tr>
+            <td class="ps-4 fw-semibold">{{ item.product_name }}</td>
+            <td class="text-center tabular-nums">{{ item.quantity }}</td>
+            <td class="text-end tabular-nums">{{ item.unit_price | money(order.currency) }}</td>
+            <td class="text-end pe-4 fw-semibold tabular-nums">{{ item.subtotal | money(order.currency) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" class="text-end ps-4 fw-bold border-0 pt-3">Total</td>
+            <td class="text-end pe-4 fw-bold fs-5 border-0 pt-3 tabular-nums">{{ order.total_amount | money(order.currency) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-4 no-print">
+    <a href="{{ url_for('front.home') }}" class="btn btn-primary px-4"><i class="bi bi-shop me-1"></i>Continue shopping</a>
+    <button type="button" class="btn btn-ghost px-4" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print receipt</button>
+  </div>
+</div>
+{% endblock %}

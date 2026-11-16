@@ -1,0 +1,89 @@
+{# Reusable template macros #}
+
+{% macro product_image(product, thumb=True, cls="") -%}
+  {%- set file = product.thumbnail if thumb else product.image -%}
+  {%- if file -%}
+    <img src="{{ url_for('product_thumbnail' if thumb else 'product_image', filename=file) }}"
+         alt="{{ product.name }}" class="{{ cls }}" loading="lazy">
+  {%- else -%}
+    <div class="img-placeholder {{ cls }}"><i class="bi bi-image"></i></div>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro stock_badge(product, extra_cls="") -%}
+  {%- set label, color = product.stock_status -%}
+  <span class="badge text-bg-{{ color }} rounded-pill {{ extra_cls }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro product_card(product) %}
+<div class="product-card">
+  <a class="product-thumb {% if not product.in_stock %}is-soldout{% endif %}" href="{{ url_for('front.product_detail', product_id=product.id) }}">
+    {{ product_image(product) }}
+    {% if not product.in_stock or product.stock <= 5 %}
+      {{ stock_badge(product, "stock-pill") }}
+    {% endif %}
+  </a>
+  <div class="card-body">
+    <a class="product-name" href="{{ url_for('front.product_detail', product_id=product.id) }}" title="{{ product.name }}">{{ product.name }}</a>
+    <p class="product-desc">{{ product.short_description }}</p>
+    <div class="product-price-row">
+      <span class="price fs-5">{{ product.price | money }}</span>
+      {% if product.in_stock %}
+        <span class="small text-success fw-semibold"><i class="bi bi-check2 me-1"></i>Ready</span>
+      {% else %}
+        <span class="small text-danger fw-semibold">Sold out</span>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-soft btn-sm flex-fill py-2" href="{{ url_for('front.product_detail', product_id=product.id) }}">
+        <i class="bi bi-eye me-1"></i>View Details
+      </a>
+      <form class="flex-fill" method="post" action="{{ url_for('front.cart_add', product_id=product.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="quantity" value="1">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button class="btn btn-primary btn-sm w-100 py-2" type="submit" {% if not product.in_stock %}disabled{% endif %}>
+          <i class="bi bi-bag-plus me-1"></i>{{ 'Add to Cart' if product.in_stock else 'Sold out' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro pagination_nav(pagination, endpoint) %}
+  {% if pagination.pages > 1 %}
+  <nav aria-label="Pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+      <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for(endpoint, page=pagination.prev_num, **kwargs) }}" aria-label="Previous">&laquo;</a>
+      </li>
+      {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if p %}
+          <li class="page-item {% if p == pagination.page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for(endpoint, page=p, **kwargs) }}">{{ p }}</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for(endpoint, page=pagination.next_num, **kwargs) }}" aria-label="Next">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+{% endmacro %}
+
+{% macro checkout_steps(current) %}
+  {% set steps = ["Cart", "Details", "Payment", "Done"] %}
+  <div class="steps mb-4">
+    {% for s in steps %}
+      <div class="step {% if loop.index < current %}done{% elif loop.index == current %}current{% endif %}">
+        <span class="num">{% if loop.index < current %}<i class="bi bi-check-lg"></i>{% else %}{{ loop.index }}{% endif %}</span>
+        <span>{{ s }}</span>
+      </div>
+      {% if not loop.last %}<div class="step-sep {% if loop.index < current %}done{% endif %}"></div>{% endif %}
+    {% endfor %}
+  </div>
+{% endmacro %}

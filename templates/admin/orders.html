@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% from "_macros.html" import pagination_nav %}
+
+{% block title %}Order History{% endblock %}
+{% block page_title %}Order History{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  {% set cards = [
+    ("Total orders", stats.total, "bi-receipt", "#eef2ff", "#4f46e5"),
+    ("Paid", stats.paid, "bi-check2-circle", "#dcfce7", "#16a34a"),
+    ("Awaiting payment", stats.pending, "bi-hourglass-split", "#fef3c7", "#d97706"),
+    ("Revenue (paid)", stats.revenue | money, "bi-cash-stack", "#e0f2fe", "#0284c7"),
+  ] %}
+  {% for label, value, icon, bg, fg in cards %}
+  <div class="col-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background: {{ bg }}; color: {{ fg }}"><i class="bi {{ icon }}"></i></div>
+      <div><div class="stat-value">{{ value }}</div><div class="stat-label">{{ label }}</div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="surface overflow-hidden">
+  <form class="d-flex flex-wrap gap-2 p-3 border-bottom bg-light bg-opacity-50" method="get">
+    <input class="form-control" style="max-width: 360px" type="search" name="q" value="{{ search }}" placeholder="Search order ID, name, phone or email…">
+    <select name="status" class="form-select" style="width: auto" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for s in ['PAID', 'PENDING', 'CANCELLED'] %}
+        <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s | title }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-soft" type="submit"><i class="bi bi-search me-1"></i>Filter</button>
+    {% if search or status %}<a class="btn btn-ghost" href="{{ url_for('admin.order_list') }}">Clear</a>{% endif %}
+  </form>
+
+  <div class="table-responsive">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th class="ps-3">Order ID</th>
+          <th>Customer Name</th>
+          <th>Phone Number</th>
+          <th class="text-end">Total Amount</th>
+          <th>Order Date</th>
+          <th>Status</th>
+          <th class="text-end pe-3">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in pagination.items %}
+        <tr>
+          <td class="ps-3 fw-semibold tabular-nums">{{ o.code }}</td>
+          <td>{{ o.customer_name }}</td>
+          <td>{{ o.customer_phone }}</td>
+          <td class="text-end fw-semibold tabular-nums">{{ o.total_amount | money(o.currency) }}</td>
+          <td class="text-nowrap text-secondary">{{ o.created_at | datetime }}</td>
+          <td><span class="status-badge text-bg-{{ o.status_badge }}">{{ o.status | title }}</span></td>
+          <td class="text-end pe-3">
+            <a class="btn btn-sm btn-soft" href="{{ url_for('admin.order_detail', order_id=o.id) }}"><i class="bi bi-eye me-1"></i>View Details</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-secondary py-5">No orders yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{ pagination_nav(pagination, 'admin.order_list', q=search or None, status=status or None) }}
+{% endblock %}
