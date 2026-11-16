@@ -126,13 +126,14 @@ Cart ─► Checkout form ─► Order saved (PENDING, stock reserved) ─► KH
      - **Start Command:** `gunicorn wsgi:app --workers 1 --threads 4 --bind 0.0.0.0:$PORT`
 4. **Set Environment Variables in Render:**
    - `DATABASE_URL` = your Neon connection string (`?sslmode=require`)
+   - `CLOUDINARY_URL` = your Cloudinary URL (`cloudinary://API_KEY:API_SECRET@CLOUD_NAME`) for persistent product images
    - `SECRET_KEY` = a long random string
    - `ADMIN_PASSWORD` = a strong password for the initial `admin` user (created automatically on first boot)
    - `BAKONG_ACCOUNT_ID`, `KHQR_MERCHANT_NAME`, `KHQR_MERCHANT_CITY`, and optionally `BAKONG_API_TOKEN`
 
-> **Note on product images:** Render's free tier uses an ephemeral filesystem, so images uploaded to
-> `uploads/products/` will reset on redeploy/restart unless you attach a Render Persistent Disk or
-> integrate external object storage (e.g. Cloudinary / S3).
+> **Image storage:** When `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` /
+> `CLOUDINARY_API_SECRET`) is set, product images and thumbnails are hosted on Cloudinary and
+> survive Render restarts/redeploys. When unset, images are saved locally under `uploads/products/`.
 
 ---
 

@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn wsgi:app --workers 1 --threads 4 --bind 0.0.0.0:$PORT
+    healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
         value: "3.13.5"
@@ -26,3 +27,5 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         sync: false # Optional: set a strong password before first boot (defaults to Admin@123)
+      - key: CLOUDINARY_URL
+        sync: false # cloudinary://API_KEY:API_SECRET@CLOUD_NAME for persistent product images

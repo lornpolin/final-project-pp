@@ -1,10 +1,20 @@
 {# Reusable template macros #}
 
-{% macro product_image(product, thumb=True, cls="") -%}
+{% macro product_image_url(product, thumb=True, external=False) -%}
   {%- set file = product.thumbnail if thumb else product.image -%}
   {%- if file -%}
-    <img src="{{ url_for('product_thumbnail' if thumb else 'product_image', filename=file) }}"
-         alt="{{ product.name }}" class="{{ cls }}" loading="lazy">
+    {%- if file.startswith('http://') or file.startswith('https://') -%}
+      {{ file }}
+    {%- else -%}
+      {{ url_for('product_thumbnail' if thumb else 'product_image', filename=file, _external=external) }}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro product_image(product, thumb=True, cls="") -%}
+  {%- set src = product_image_url(product, thumb=thumb) | trim -%}
+  {%- if src -%}
+    <img src="{{ src }}" alt="{{ product.name }}" class="{{ cls }}" loading="lazy">
   {%- else -%}
     <div class="img-placeholder {{ cls }}"><i class="bi bi-image"></i></div>
   {%- endif -%}

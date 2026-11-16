@@ -195,6 +195,7 @@ class ShopFlowTests(unittest.TestCase):
         self.assertIn("/admin/login", r.headers["Location"])
 
     def test_all_pages_render(self):
+        self.assertEqual(self.client.get("/healthz").status_code, 200)
         self.assertEqual(self.client.get("/cart").status_code, 200)
         self.assertEqual(self.client.get("/checkout").status_code, 302)  # empty cart
         self.assertEqual(self.client.get("/product/99999").status_code, 404)
@@ -270,6 +271,45 @@ class ShopFlowTests(unittest.TestCase):
 
         with patch.dict(os.environ, {"DATABASE_URL": "postgres://u:p@host/db?sslmode=require"}):
             self.assertEqual(_database_url(), "postgresql://u:p@host/db?sslmode=require")
+
+    def test_cloudinary_upload_and_delete(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        from PIL import Image
+
+        self.login_admin()
+        token = self.csrf()
+        buf = BytesIO()
+        Image.new("RGB", (300, 300), (10, 90, 180)).save(buf, "JPEG")
+        buf.seek(0)
+
+        fake_url = "https://res.cloudinary.com/demo/image/upload/v123456/pp_shop/products/abc123.jpg"
+        fake_thumb = "https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,h_480,w_480/pp_shop/products/abc123"
+
+        with patch.dict(self.app.config, {"CLOUDINARY_URL": "cloudinary://key:secret@demo"}), \
+             patch("cloudinary.uploader.upload", return_value={
+                 "secure_url": fake_url, "public_id": "pp_shop/products/abc123"
+             }) as mock_upload, \
+             patch("cloudinary.utils.cloudinary_url", return_value=(fake_thumb, {})), \
+             patch("cloudinary.uploader.destroy") as mock_destroy:
+            r = self.client.post("/admin/products/new", data={
+                "csrf_token": token, "name": "Cloud Item", "description": "Cloud", "price": "19.00",
+                "stock": "4", "status": "ACTIVE", "image": (buf, "cloud.jpg")},
+                content_type="multipart/form-data", follow_redirects=True)
+            self.assertEqual(r.status_code, 200)
+            mock_upload.assert_called_once()
+
+            with self.app.app_context():
+                p = Product.query.filter_by(name="Cloud Item").one()
+                self.assertEqual(p.image, fake_url)
+                self.assertEqual(p.thumbnail, fake_thumb)
+                pid = p.id
+
+            detail = self.client.get(f"/product/{pid}")
+            self.assertIn(fake_url.encode(), detail.data)
+
+            self.client.post(f"/admin/products/{pid}/delete", data={"csrf_token": token})
+            mock_destroy.assert_called_once_with("pp_shop/products/abc123", resource_type="image")
 
 
 if __name__ == "__main__":

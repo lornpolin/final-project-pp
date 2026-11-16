@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import product_image, product_card, stock_badge %}
+{% from "_macros.html" import product_image, product_image_url, product_card, stock_badge %}
 
 {% block title %}{{ product.name }} – {{ shop_name }}{% endblock %}
 {% block meta_description %}{{ product.short_description }}{% endblock %}
@@ -12,7 +12,7 @@
   <meta property="og:description" content="{{ product.short_description }}">
   <meta property="og:url" content="{{ share_url }}">
   {% if product.image %}
-  <meta property="og:image" content="{{ url_for('product_image', filename=product.image, _external=True) }}">
+  <meta property="og:image" content="{{ product_image_url(product, thumb=False, external=True) | trim }}">
   {% endif %}
   <meta name="twitter:card" content="summary_large_image">
 {% endblock %}

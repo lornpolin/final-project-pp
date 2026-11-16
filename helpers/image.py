@@ -1,20 +1,50 @@
 """
-Product image helpers – validation, resizing, thumbnails and placeholders.
+Product image helpers – validation, resizing, thumbnails, placeholders, and
+optional Cloudinary cloud storage.
 """
+import io
 import os
+import re
 import uuid
 
+from flask import current_app, has_app_context
 from PIL import Image as PILImage, ImageDraw, ImageFont, ImageOps
 from werkzeug.utils import secure_filename
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "jfif", "png", "webp"}
 MAX_IMAGE_SIZE = (1200, 1200)
 THUMB_SIZE = (480, 480)
+_CLOUDINARY_PUBLIC_ID_RE = re.compile(r"/upload/(?:[^/]+/)*?(?:v\d+/)?(.+?)(?:\.[^./?#]+)?(?:[?#].*)?$")
 
 
 def allowed_file(filename):
     """Return True when the file extension is in the allowed set."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _cfg(key, default=""):
+    if has_app_context():
+        return current_app.config.get(key, default)
+    return os.environ.get(key, default)
+
+
+def _configure_cloudinary():
+    """Configure Cloudinary from app config/env; return True if enabled."""
+    url = (_cfg("CLOUDINARY_URL") or "").strip()
+    cloud_name = (_cfg("CLOUDINARY_CLOUD_NAME") or "").strip()
+    api_key = (_cfg("CLOUDINARY_API_KEY") or "").strip()
+    api_secret = (_cfg("CLOUDINARY_API_SECRET") or "").strip()
+
+    if not url and not (cloud_name and api_key and api_secret):
+        return False
+
+    import cloudinary
+
+    if url:
+        cloudinary.config(cloudinary_url=url, secure=True)
+    else:
+        cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret, secure=True)
+    return True
 
 
 def _to_rgb(img):
@@ -26,14 +56,58 @@ def _to_rgb(img):
     return img.convert("RGB")
 
 
+def _store_pil_image(img, image_folder, thumb_folder):
+    """Persist a validated RGB PIL image to Cloudinary (if configured) or local disk."""
+    base = uuid.uuid4().hex
+    full = img.copy()
+    full.thumbnail(MAX_IMAGE_SIZE, PILImage.LANCZOS)
+
+    if _configure_cloudinary():
+        import cloudinary.uploader
+        import cloudinary.utils
+
+        buf = io.BytesIO()
+        full.save(buf, "JPEG", quality=88, optimize=True)
+        buf.seek(0)
+        folder = (_cfg("CLOUDINARY_FOLDER", "pp_shop/products") or "pp_shop/products").strip("/")
+        result = cloudinary.uploader.upload(
+            buf,
+            folder=folder,
+            public_id=base,
+            resource_type="image",
+            overwrite=True,
+        )
+        image_url = result["secure_url"]
+        thumb_url, _ = cloudinary.utils.cloudinary_url(
+            result["public_id"],
+            secure=True,
+            width=THUMB_SIZE[0],
+            height=THUMB_SIZE[1],
+            crop="fill",
+            gravity="auto",
+            quality="auto",
+            fetch_format="auto",
+        )
+        return image_url, thumb_url
+
+    os.makedirs(image_folder, exist_ok=True)
+    os.makedirs(thumb_folder, exist_ok=True)
+    image_name, thumb_name = f"{base}.jpg", f"{base}_thumb.jpg"
+    full.save(os.path.join(image_folder, image_name), "JPEG", quality=88, optimize=True)
+
+    thumb = ImageOps.fit(img, THUMB_SIZE, PILImage.LANCZOS)
+    thumb.save(os.path.join(thumb_folder, thumb_name), "JPEG", quality=85, optimize=True)
+    return image_name, thumb_name
+
+
 def save_product_image(file, image_folder, thumb_folder):
     """
     Validate and store an uploaded product image.
 
     * The full image is resized to fit within 1200×1200 and stored as JPEG.
-    * A square 480×480 thumbnail (centre-cropped) is generated for listings.
+    * A square 480×480 thumbnail is generated for listings.
 
-    Returns ``(image_filename, thumbnail_filename)``.
+    Returns ``(image_ref, thumbnail_ref)`` (Cloudinary URLs or local filenames).
     Raises ``ValueError`` if the file is not a valid image.
     """
     if not file or not file.filename or not allowed_file(secure_filename(file.filename)):
@@ -48,27 +122,30 @@ def save_product_image(file, image_folder, thumb_folder):
     except Exception as exc:
         raise ValueError("The uploaded file is not a valid image.") from exc
 
-    os.makedirs(image_folder, exist_ok=True)
-    os.makedirs(thumb_folder, exist_ok=True)
+    return _store_pil_image(_to_rgb(img), image_folder, thumb_folder)
 
-    img = _to_rgb(img)
-    base = uuid.uuid4().hex
-    image_name, thumb_name = f"{base}.jpg", f"{base}_thumb.jpg"
 
-    full = img.copy()
-    full.thumbnail(MAX_IMAGE_SIZE, PILImage.LANCZOS)
-    full.save(os.path.join(image_folder, image_name), "JPEG", quality=88, optimize=True)
-
-    thumb = ImageOps.fit(img, THUMB_SIZE, PILImage.LANCZOS)
-    thumb.save(os.path.join(thumb_folder, thumb_name), "JPEG", quality=85, optimize=True)
-
-    return image_name, thumb_name
+def _extract_cloudinary_public_id(url):
+    match = _CLOUDINARY_PUBLIC_ID_RE.search(url or "")
+    return match.group(1) if match else None
 
 
 def delete_product_image(image_name, thumb_name, image_folder, thumb_folder):
-    """Remove stored image files (ignores missing files)."""
+    """Remove stored image files from Cloudinary or local disk (ignores missing)."""
+    if image_name and image_name.startswith(("http://", "https://")):
+        if _configure_cloudinary():
+            public_id = _extract_cloudinary_public_id(image_name)
+            if public_id:
+                import cloudinary.uploader
+
+                try:
+                    cloudinary.uploader.destroy(public_id, resource_type="image")
+                except Exception:
+                    pass
+        return
+
     for folder, name in ((image_folder, image_name), (thumb_folder, thumb_name)):
-        if name:
+        if name and not name.startswith(("http://", "https://")):
             try:
                 os.remove(os.path.join(folder, name))
             except OSError:
@@ -78,11 +155,8 @@ def delete_product_image(image_name, thumb_name, image_folder, thumb_folder):
 def create_placeholder_image(text, colors, image_folder, thumb_folder):
     """
     Generate a simple gradient product image (used for seed data).
-    Returns ``(image_filename, thumbnail_filename)``.
+    Returns ``(image_ref, thumbnail_ref)``.
     """
-    os.makedirs(image_folder, exist_ok=True)
-    os.makedirs(thumb_folder, exist_ok=True)
-
     size = 900
     top, bottom = colors
     img = PILImage.new("RGB", (size, size), top)
@@ -104,9 +178,4 @@ def create_placeholder_image(text, colors, image_folder, thumb_folder):
     draw.text((size / 2, 430), initials, fill=(255, 255, 255), font=font, anchor="mm")
     draw.text((size / 2, 760), text, fill=(255, 255, 255), font=small, anchor="mm")
 
-    base = uuid.uuid4().hex
-    image_name, thumb_name = f"{base}.jpg", f"{base}_thumb.jpg"
-    img.save(os.path.join(image_folder, image_name), "JPEG", quality=88)
-    ImageOps.fit(img, THUMB_SIZE, PILImage.LANCZOS).save(
-        os.path.join(thumb_folder, thumb_name), "JPEG", quality=85)
-    return image_name, thumb_name
+    return _store_pil_image(img, image_folder, thumb_folder)

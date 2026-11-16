@@ -52,9 +52,14 @@ class Config:
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin@123")
 
-    # ── Uploads ──────────────────────────────────────────────────────
+    # ── Uploads / Cloudinary ─────────────────────────────────────────
     UPLOAD_FOLDER_PRODUCTS = os.path.join(BASE_DIR, "uploads", "products")
     UPLOAD_FOLDER_THUMBNAILS = os.path.join(BASE_DIR, "uploads", "products", "thumbs")
+    CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "").strip()
+    CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "").strip()
+    CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "").strip()
+    CLOUDINARY_FOLDER = os.environ.get("CLOUDINARY_FOLDER", "pp_shop/products").strip()
 
     # ── KHQR / Bakong ────────────────────────────────────────────────
     # Your Bakong account ID, e.g. "your_name@aclb" (shown in the Bakong app).

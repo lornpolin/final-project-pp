@@ -55,6 +55,11 @@ def create_app(config_object=Config):
             "current_year": datetime.now().year,
         }
 
+    # ── Health check for Render ──────────────────────────────────────
+    @app.route("/healthz")
+    def healthz():
+        return {"status": "ok"}, 200
+
     # ── Serve uploaded product images
     @app.route("/uploads/products/<path:filename>")
     def product_image(filename):
