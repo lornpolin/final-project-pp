@@ -6,6 +6,7 @@ import io
 import os
 import re
 import uuid
+from urllib.parse import unquote, urlparse
 
 from flask import current_app, has_app_context
 from PIL import Image as PILImage, ImageDraw, ImageFont, ImageOps
@@ -35,15 +36,18 @@ def _configure_cloudinary():
     api_key = (_cfg("CLOUDINARY_API_KEY") or "").strip()
     api_secret = (_cfg("CLOUDINARY_API_SECRET") or "").strip()
 
-    if not url and not (cloud_name and api_key and api_secret):
+    if url:
+        parsed = urlparse(url)
+        cloud_name = parsed.hostname or cloud_name
+        api_key = unquote(parsed.username or "") or api_key
+        api_secret = unquote(parsed.password or "") or api_secret
+
+    if not (cloud_name and api_key and api_secret):
         return False
 
     import cloudinary
 
-    if url:
-        cloudinary.config(cloudinary_url=url, secure=True)
-    else:
-        cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret, secure=True)
+    cloudinary.config(cloud_name=cloud_name, api_key=api_key, api_secret=api_secret, secure=True)
     return True
 
 
