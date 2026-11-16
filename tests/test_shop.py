@@ -228,8 +228,12 @@ class ShopFlowTests(unittest.TestCase):
         self.assertIn(b"Test Product", r.data)
         with self.app.app_context():
             p = Product.query.filter_by(name="Test Product").one()
-            self.assertTrue(os.path.exists(os.path.join(self.app.config["UPLOAD_FOLDER_THUMBNAILS"], p.thumbnail)))
-            pid = p.id
+            self.assertIsNotNone(p.image_data)
+            self.assertIsNotNone(p.thumbnail_data)
+            pid, img_name, thumb_name = p.id, p.image, p.thumbnail
+
+        self.assertEqual(self.client.get(f"/uploads/products/{img_name}").status_code, 200)
+        self.assertEqual(self.client.get(f"/uploads/products/thumbs/{thumb_name}").status_code, 200)
 
         # invalid edit
         r = self.client.post(f"/admin/products/{pid}/edit", data={
@@ -264,7 +268,9 @@ class ShopFlowTests(unittest.TestCase):
         with self.app.app_context():
             p = Product.query.filter_by(name="JFIF Product").one()
             self.assertTrue(p.image.endswith(".jpg"))
-            self.assertTrue(os.path.exists(os.path.join(self.app.config["UPLOAD_FOLDER_THUMBNAILS"], p.thumbnail)))
+            self.assertIsNotNone(p.image_data)
+            self.assertIsNotNone(p.thumbnail_data)
+            self.assertEqual(self.client.get(f"/uploads/products/thumbs/{p.thumbnail}").status_code, 200)
 
     def test_postgres_url_normalization(self):
         from unittest.mock import patch

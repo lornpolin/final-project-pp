@@ -145,12 +145,15 @@ def _read_product_form():
 
 
 def _store_image(product, file):
-    """Save a new image for the product, replacing any previous one."""
+    """Process and attach a new image to the product, replacing any previous one."""
     cfg = current_app.config
-    image, thumb = save_product_image(file, cfg["UPLOAD_FOLDER_PRODUCTS"], cfg["UPLOAD_FOLDER_THUMBNAILS"])
+    image, thumb, image_bytes, thumb_bytes = save_product_image(
+        file, cfg["UPLOAD_FOLDER_PRODUCTS"], cfg["UPLOAD_FOLDER_THUMBNAILS"]
+    )
     delete_product_image(product.image, product.thumbnail,
                          cfg["UPLOAD_FOLDER_PRODUCTS"], cfg["UPLOAD_FOLDER_THUMBNAILS"])
     product.image, product.thumbnail = image, thumb
+    product.image_data, product.thumbnail_data = image_bytes, thumb_bytes
 
 
 @admin_bp.route("/products/new", methods=["GET", "POST"])
@@ -208,6 +211,7 @@ def product_edit(product_id):
             delete_product_image(product.image, product.thumbnail,
                                  cfg["UPLOAD_FOLDER_PRODUCTS"], cfg["UPLOAD_FOLDER_THUMBNAILS"])
             product.image = product.thumbnail = None
+            product.image_data = product.thumbnail_data = None
 
         product.name = data["name"]
         product.description = data["description"]

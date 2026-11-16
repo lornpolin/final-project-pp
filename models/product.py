@@ -20,8 +20,10 @@ class Product(db.Model):
     description = db.Column(db.Text, nullable=False, default="")
     price = db.Column(db.Numeric(10, 2), nullable=False)
     stock = db.Column(db.Integer, nullable=False, default=0)
-    image = db.Column(db.String(512))            # local filename or Cloudinary URL
-    thumbnail = db.Column(db.String(512))        # local filename or Cloudinary URL
+    image = db.Column(db.String(512))            # filename / key or Cloudinary URL
+    thumbnail = db.Column(db.String(512))        # filename / key or Cloudinary URL
+    image_data = db.Column(db.LargeBinary)       # JPEG bytes stored in DB
+    thumbnail_data = db.Column(db.LargeBinary)   # JPEG thumbnail bytes stored in DB
     status = db.Column(db.String(10), nullable=False, default=STATUS_ACTIVE, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(

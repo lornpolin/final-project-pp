@@ -4,11 +4,13 @@ PP Shop – mini e-commerce application (Flask).
 Run locally:   python app.py
 Run on Render: gunicorn wsgi:app
 """
+import io
 import os
 from datetime import datetime
 from decimal import Decimal
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_file, send_from_directory
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
@@ -60,13 +62,23 @@ def create_app(config_object=Config):
     def healthz():
         return {"status": "ok"}, 200
 
-    # ── Serve uploaded product images
+    # ── Serve uploaded product images (DB first, local disk fallback)
     @app.route("/uploads/products/<path:filename>")
     def product_image(filename):
+        from models import Product
+
+        product = Product.query.filter_by(image=filename).first()
+        if product and product.image_data:
+            return send_file(io.BytesIO(product.image_data), mimetype="image/jpeg", max_age=86400)
         return send_from_directory(app.config["UPLOAD_FOLDER_PRODUCTS"], filename)
 
     @app.route("/uploads/products/thumbs/<path:filename>")
     def product_thumbnail(filename):
+        from models import Product
+
+        product = Product.query.filter_by(thumbnail=filename).first()
+        if product and product.thumbnail_data:
+            return send_file(io.BytesIO(product.thumbnail_data), mimetype="image/jpeg", max_age=86400)
         return send_from_directory(app.config["UPLOAD_FOLDER_THUMBNAILS"], filename)
 
     # ── Create tables & seed data
@@ -74,6 +86,8 @@ def create_app(config_object=Config):
         import models  # noqa: F401 – registers all models with SQLAlchemy
 
         db.create_all()
+        _ensure_product_image_columns()
+        _backfill_db_images(app)
         _seed_data(app)
 
     return app
@@ -107,6 +121,47 @@ SEED_PRODUCTS = [
 ]
 
 
+def _ensure_product_image_columns():
+    """Add BLOB/BYTEA columns to an existing product table if missing."""
+    cols = {c["name"] for c in inspect(db.engine).get_columns("product")}
+    col_type = "BLOB" if db.engine.dialect.name == "sqlite" else "BYTEA"
+    changed = False
+    for col in ("image_data", "thumbnail_data"):
+        if col not in cols:
+            db.session.execute(text(f"ALTER TABLE product ADD COLUMN {col} {col_type}"))
+            changed = True
+    if changed:
+        db.session.commit()
+
+
+def _backfill_db_images(app):
+    """Copy any existing local disk product images into the database."""
+    from models import Product
+
+    products = Product.query.filter(
+        db.or_(
+            db.and_(Product.image.isnot(None), Product.image_data.is_(None)),
+            db.and_(Product.thumbnail.isnot(None), Product.thumbnail_data.is_(None)),
+        )
+    ).all()
+    changed = False
+    for p in products:
+        if p.image and not p.image.startswith(("http://", "https://")) and p.image_data is None:
+            path = os.path.join(app.config["UPLOAD_FOLDER_PRODUCTS"], p.image)
+            if os.path.isfile(path):
+                with open(path, "rb") as fh:
+                    p.image_data = fh.read()
+                changed = True
+        if p.thumbnail and not p.thumbnail.startswith(("http://", "https://")) and p.thumbnail_data is None:
+            path = os.path.join(app.config["UPLOAD_FOLDER_THUMBNAILS"], p.thumbnail)
+            if os.path.isfile(path):
+                with open(path, "rb") as fh:
+                    p.thumbnail_data = fh.read()
+                changed = True
+    if changed:
+        db.session.commit()
+
+
 def _seed_data(app):
     from models import User, Product
     from helpers.image import create_placeholder_image
@@ -126,12 +181,14 @@ def _seed_data(app):
 
     if Product.query.count() == 0:
         for name, price, stock, colors, description in SEED_PRODUCTS:
-            image, thumb = create_placeholder_image(
+            image, thumb, image_bytes, thumb_bytes = create_placeholder_image(
                 name, colors,
                 app.config["UPLOAD_FOLDER_PRODUCTS"], app.config["UPLOAD_FOLDER_THUMBNAILS"])
             db.session.add(Product(
                 name=name, description=description, price=Decimal(price),
-                stock=stock, image=image, thumbnail=thumb, status=Product.STATUS_ACTIVE,
+                stock=stock, image=image, thumbnail=thumb,
+                image_data=image_bytes, thumbnail_data=thumb_bytes,
+                status=Product.STATUS_ACTIVE,
             ))
         db.session.commit()
 

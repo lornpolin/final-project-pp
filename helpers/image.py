@@ -60,22 +60,33 @@ def _to_rgb(img):
     return img.convert("RGB")
 
 
-def _store_pil_image(img, image_folder, thumb_folder):
-    """Persist a validated RGB PIL image to Cloudinary (if configured) or local disk."""
+def _render_pil_bytes(img):
+    """Return ``(image_name, thumb_name, image_bytes, thumb_bytes)`` for an RGB PIL image."""
     base = uuid.uuid4().hex
     full = img.copy()
     full.thumbnail(MAX_IMAGE_SIZE, PILImage.LANCZOS)
+    full_buf = io.BytesIO()
+    full.save(full_buf, "JPEG", quality=88, optimize=True)
+
+    thumb = ImageOps.fit(img, THUMB_SIZE, PILImage.LANCZOS)
+    thumb_buf = io.BytesIO()
+    thumb.save(thumb_buf, "JPEG", quality=85, optimize=True)
+
+    return f"{base}.jpg", f"{base}_thumb.jpg", full_buf.getvalue(), thumb_buf.getvalue()
+
+
+def _store_pil_image(img, image_folder, thumb_folder):
+    """Persist a validated RGB PIL image to Cloudinary (if configured) or return DB bytes."""
+    image_name, thumb_name, full_bytes, thumb_bytes = _render_pil_bytes(img)
+    base = image_name.rsplit(".", 1)[0]
 
     if _configure_cloudinary():
         import cloudinary.uploader
         import cloudinary.utils
 
-        buf = io.BytesIO()
-        full.save(buf, "JPEG", quality=88, optimize=True)
-        buf.seek(0)
         folder = (_cfg("CLOUDINARY_FOLDER", "pp_shop/products") or "pp_shop/products").strip("/")
         result = cloudinary.uploader.upload(
-            buf,
+            io.BytesIO(full_bytes),
             folder=folder,
             public_id=base,
             resource_type="image",
@@ -92,26 +103,16 @@ def _store_pil_image(img, image_folder, thumb_folder):
             quality="auto",
             fetch_format="auto",
         )
-        return image_url, thumb_url
+        return image_url, thumb_url, None, None
 
-    os.makedirs(image_folder, exist_ok=True)
-    os.makedirs(thumb_folder, exist_ok=True)
-    image_name, thumb_name = f"{base}.jpg", f"{base}_thumb.jpg"
-    full.save(os.path.join(image_folder, image_name), "JPEG", quality=88, optimize=True)
-
-    thumb = ImageOps.fit(img, THUMB_SIZE, PILImage.LANCZOS)
-    thumb.save(os.path.join(thumb_folder, thumb_name), "JPEG", quality=85, optimize=True)
-    return image_name, thumb_name
+    return image_name, thumb_name, full_bytes, thumb_bytes
 
 
-def save_product_image(file, image_folder, thumb_folder):
+def save_product_image(file, image_folder="", thumb_folder=""):
     """
-    Validate and store an uploaded product image.
+    Validate and process an uploaded product image.
 
-    * The full image is resized to fit within 1200×1200 and stored as JPEG.
-    * A square 480×480 thumbnail is generated for listings.
-
-    Returns ``(image_ref, thumbnail_ref)`` (Cloudinary URLs or local filenames).
+    Returns ``(image_ref, thumbnail_ref, image_bytes, thumb_bytes)``.
     Raises ``ValueError`` if the file is not a valid image.
     """
     if not file or not file.filename or not allowed_file(secure_filename(file.filename)):
