@@ -138,3 +138,6 @@ def _seed_data(app):
 
 if __name__ == "__main__":
     create_app().run(debug=True, host="127.0.0.1", port=5000)
+elif os.environ.get("SKIP_APP_FACTORY") != "1":
+    # Expose `app` at module level so Render's default `gunicorn app:app` works.
+    app = create_app()

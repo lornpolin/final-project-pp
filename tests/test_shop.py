@@ -12,6 +12,7 @@ import unittest
 from decimal import Decimal
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+os.environ.setdefault("SKIP_APP_FACTORY", "1")
 
 from config import Config  # noqa: E402
 from app import create_app  # noqa: E402
