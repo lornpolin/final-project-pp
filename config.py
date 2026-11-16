@@ -23,7 +23,7 @@ def _bool(name, default=False):
 def _database_url():
     url = os.environ.get("DATABASE_URL", "sqlite:///shop.db").strip()
     # Neon/Heroku sometimes provide "postgres://", which SQLAlchemy 2.x rejects.
-    if url.startswith("postgres://"):   
+    if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
     return url
 
